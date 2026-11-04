@@ -405,8 +405,18 @@
 
   function renderOutline(sections) {
     var box = $('#outline');
-    box.innerHTML = '<div class="o-title">目录</div>';
-    sections.forEach(function (s) {
+    box.innerHTML = '';
+    var head = document.createElement('div');
+    head.className = 'o-title';
+    head.innerHTML = '<span>目录</span>';
+    var addBtn = document.createElement('button');
+    addBtn.className = 'o-add';
+    addBtn.textContent = '＋';
+    addBtn.title = '新增一节';
+    addBtn.onclick = addSection;
+    head.appendChild(addBtn);
+    box.appendChild(head);
+    sections.forEach(function (s, idx) {
       var a = document.createElement('a');
       a.href = '#';
       a.textContent = s.title;
@@ -417,8 +427,43 @@
         var target = document.getElementById(s.id);
         if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); selectSection(s); }
       };
+      a.oncontextmenu = function (ev) {
+        ev.preventDefault();
+        openMenu(ev.clientX, ev.clientY, [
+          { label: '重命名本节', run: function () { renameSection(idx, s.title); } },
+          { label: '上移本节', run: function () { sectionOp('move', { sectionIndex: idx, dir: 'up' }); } },
+          { label: '下移本节', run: function () { sectionOp('move', { sectionIndex: idx, dir: 'down' }); } },
+          { label: '删除本节', danger: true, run: function () { deleteSection(idx, s.title); } }
+        ]);
+      };
       box.appendChild(a);
     });
+  }
+
+  async function sectionOp(op, payload) {
+    if (!state.paper) return;
+    await api('/paper/' + encodeURIComponent(state.paper.meta.id) + '/section/' + op, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload || {})
+    });
+    await openPaper(state.paper.meta.id);
+  }
+
+  async function addSection() {
+    var name = await askText('新章节标题', '新章节');
+    if (!name || !name.trim()) return;
+    try { await sectionOp('add', { title: name.trim(), at: (state.paper.meta.sections || []).length }); }
+    catch (e) { alert('新增失败：' + e.message); }
+  }
+  async function renameSection(idx, oldTitle) {
+    var name = await askText('章节标题', oldTitle);
+    if (!name || !name.trim()) return;
+    try { await sectionOp('rename', { sectionIndex: idx, title: name.trim() }); }
+    catch (e) { alert('重命名失败：' + e.message); }
+  }
+  async function deleteSection(idx, title) {
+    if (!confirm('删除章节「' + title + '」及其全部内容？')) return;
+    try { await sectionOp('delete', { sectionIndex: idx }); }
+    catch (e) { alert('删除失败：' + e.message); }
   }
   function sectionById(id) {
     if (!state.paper) return null;
@@ -671,6 +716,7 @@
     state.textEdit = !state.textEdit;
     document.body.classList.toggle('text-edit', state.textEdit);
     $('#edit-text').classList.toggle('active', state.textEdit);
+    setBlocksDraggable();
     if (!state.textEdit) $('#block-tools').hidden = true;
   }
 
@@ -725,6 +771,72 @@
       $('#block-modal').hidden = true;
       await reloadDoc();
     } catch (e) { alert('保存失败：' + e.message); }
+  }
+
+  function clearDropMarks() {
+    $$('#doc .drop-before, #doc .drop-after').forEach(function (el) {
+      el.classList.remove('drop-before', 'drop-after');
+    });
+  }
+
+  function setBlocksDraggable() {
+    $$('#doc > *').forEach(function (el) {
+      var tag = el.tagName.toLowerCase();
+      if (['p', 'table', 'ul', 'ol', 'pre', 'blockquote', 'figure'].indexOf(tag) >= 0) {
+        el.draggable = !!state.textEdit;
+      }
+    });
+  }
+
+  function bindBlockDrag() {
+    var doc = $('#doc');
+    doc.addEventListener('dragstart', function (ev) {
+      if (!state.textEdit) return;
+      var el = blockAt(ev.target);
+      if (!el) return;
+      state.dragSrc = { sectionIndex: sectionIndexOfNode(el), blockIndex: blockIndexOfNode(el) };
+      ev.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', 'block');
+      el.classList.add('dragging');
+    });
+    doc.addEventListener('dragend', function () {
+      $$('#doc .dragging').forEach(function (el) { el.classList.remove('dragging'); });
+      clearDropMarks();
+      state.dragSrc = null;
+    });
+    doc.addEventListener('dragover', function (ev) {
+      if (!state.dragSrc) return;
+      var t = ev.target.closest('#doc > p, #doc > table, #doc > ul, #doc > ol, #doc > pre, #doc > blockquote, #doc > figure, #doc > h2[id], #doc > h3[id]');
+      if (!t) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = 'move';
+      clearDropMarks();
+      var r = t.getBoundingClientRect();
+      var isHead = /^h[23]$/i.test(t.tagName);
+      var pos = (!isHead && (ev.clientY - r.top) > r.height / 2) ? 'after' : 'before';
+      t.classList.add(pos === 'before' ? 'drop-before' : 'drop-after');
+      state.dropTarget = { el: t, position: pos, isHead: isHead };
+    });
+    doc.addEventListener('drop', async function (ev) {
+      if (!state.dragSrc || !state.dropTarget) return;
+      ev.preventDefault();
+      var t = state.dropTarget.el;
+      var to = {
+        sectionIndex: sectionIndexOfNode(t),
+        blockIndex: state.dropTarget.isHead ? 0 : blockIndexOfNode(t),
+        position: state.dropTarget.isHead ? 'before' : state.dropTarget.position
+      };
+      try {
+        await api('/paper/' + encodeURIComponent(state.paper.meta.id) + '/block/reorder', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ from: state.dragSrc, to: to })
+        });
+        await reloadDoc();
+      } catch (e) { alert('拖动失败：' + e.message); }
+      clearDropMarks();
+      state.dragSrc = null;
+      state.dropTarget = null;
+    });
   }
 
   function bindTextEdit() {
@@ -788,6 +900,7 @@
         renderMath($('#doc'));
         bindSectionClicks($('#doc'));
         bindImageEdit();
+        setBlocksDraggable();
         if (state.textEdit) { $('#block-tools').hidden = true; state.editEl = null; }
       });
   }
@@ -1047,6 +1160,7 @@
     $('#block-save').onclick = saveBlock;
     $('#block-cancel').onclick = function () { $('#block-modal').hidden = true; };
     bindTextEdit();
+    bindBlockDrag();
     $('#edit-figs').onclick = function () {
       state.imageEdit = !state.imageEdit;
       document.body.classList.toggle('image-edit', state.imageEdit);

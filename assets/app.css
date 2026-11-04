@@ -400,3 +400,18 @@ body.text-edit #doc > p:hover, body.text-edit #doc > table:hover { outline: 2px 
 .block-box { width: min(900px, 92vw); height: min(78vh, 720px); }
 .block-text { flex: 1; width: 100%; border: 0; resize: none; padding: 14px 16px; font-family: ui-monospace, Menlo, monospace;
   font-size: 13px; line-height: 1.7; background: var(--paper); color: var(--ink); outline: none; }
+
+
+/* 目录：新增节按钮 */
+.o-title { display: flex; align-items: center; justify-content: space-between; }
+.o-add { border: 1px solid var(--line); background: transparent; color: var(--ink-2); border-radius: 4px;
+  font-size: 12px; line-height: 16px; padding: 0 6px; cursor: pointer; }
+.o-add:hover { background: rgba(0,0,0,.05); }
+
+/* 块拖拽 */
+body.text-edit #doc > p, body.text-edit #doc > table, body.text-edit #doc > ul,
+body.text-edit #doc > ol, body.text-edit #doc > pre, body.text-edit #doc > blockquote,
+body.text-edit #doc > figure { cursor: grab; }
+#doc .dragging { opacity: .45; }
+#doc .drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+#doc .drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
