@@ -626,6 +626,112 @@
     }
   }
 
+  /* ---------------- 正文按块编辑 ---------------- */
+
+  var BLOCK_SEL = 'p,table,ul,ol,pre,blockquote,figure';
+
+  function blockIndexOfNode(node) {
+    var n = 0, el = node;
+    while (el && el !== document.body && !(el.id && /^sec-/.test(el.id))) {
+      var prev = el.previousElementSibling;
+      while (prev) {
+        if (prev.id && /^sec-/.test(prev.id)) break;
+        if (BLOCK_SEL.split(',').indexOf(prev.tagName.toLowerCase()) >= 0) n++;
+        prev = prev.previousElementSibling;
+      }
+      el = el.parentElement;
+    }
+    return n;
+  }
+
+  function blockAt(node) {
+    var el = node;
+    while (el && el !== document.body) {
+      if (el.parentElement === $('#doc') && BLOCK_SEL.split(',').indexOf(el.tagName.toLowerCase()) >= 0) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function placeTools(el) {
+    var tools = $('#block-tools');
+    if (!el) { tools.hidden = true; return; }
+    var r = el.getBoundingClientRect();
+    tools.hidden = false;
+    tools.style.left = Math.max(8, Math.min(window.innerWidth - 300, r.right - 250)) + 'px';
+    tools.style.top = Math.max(8, r.top - 34) + 'px';
+    state.editEl = el;
+    state.editSection = sectionIndexOfNode(el);
+    state.editBlock = blockIndexOfNode(el);
+  }
+
+  function toggleTextEdit() {
+    state.textEdit = !state.textEdit;
+    document.body.classList.toggle('text-edit', state.textEdit);
+    $('#edit-text').classList.toggle('active', state.textEdit);
+    if (!state.textEdit) $('#block-tools').hidden = true;
+  }
+
+  async function blockOp(op, payload) {
+    if (!state.paper) return null;
+    return api('/paper/' + encodeURIComponent(state.paper.meta.id) + '/block/' + op, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  }
+
+  async function blockAction(act) {
+    var si = state.editSection, bi = state.editBlock;
+    if (si == null || bi == null || si < 0) return;
+    if (act === 'edit') { openBlockEditor(); return; }
+    if (act === 'up' || act === 'down') {
+      try { await blockOp('move', { sectionIndex: si, blockIndex: bi, dir: act }); await reloadDoc(); }
+      catch (e) { alert('移动失败：' + e.message); }
+      return;
+    }
+    if (act === 'add') {
+      try { await blockOp('insert', { sectionIndex: si, blockIndex: bi, html: '<p>新段落</p>' }); await reloadDoc(); }
+      catch (e) { alert('新增失败：' + e.message); }
+      return;
+    }
+    if (act === 'del') {
+      if (!confirm('删除这一段？')) return;
+      try { await blockOp('delete', { sectionIndex: si, blockIndex: bi }); await reloadDoc(); }
+      catch (e) { alert('删除失败：' + e.message); }
+    }
+  }
+
+  function openBlockEditor() {
+    var el = state.editEl;
+    if (!el) return;
+    $('#block-tools').hidden = true;
+    $('#block-text').value = el.innerHTML.trim();
+    $('#block-modal').hidden = false;
+    setTimeout(function () { $('#block-text').focus(); }, 30);
+  }
+
+  async function saveBlock() {
+    var html = $('#block-text').value.trim();
+    if (!html) { alert('内容不能为空，要删除请用「删除」'); return; }
+    try {
+      await blockOp('update', { sectionIndex: state.editSection, blockIndex: state.editBlock, html: html });
+      $('#block-modal').hidden = true;
+      await reloadDoc();
+    } catch (e) { alert('保存失败：' + e.message); }
+  }
+
+  function bindTextEdit() {
+    var doc = $('#doc');
+    doc.addEventListener('mousemove', function (ev) {
+      if (!state.textEdit || !$('#block-modal').hidden) return;
+      var el = blockAt(ev.target);
+      if (el !== state.editEl) placeTools(el);
+    });
+    doc.addEventListener('mouseleave', function () {
+      if (state.textEdit) { $('#block-tools').hidden = true; state.editEl = null; }
+    });
+  }
+
   /* ---------------- 手动图片编辑（只动图） ---------------- */
 
   function sectionOfNode(node) {
@@ -661,6 +767,7 @@
         renderMath($('#doc'));
         bindSectionClicks($('#doc'));
         bindImageEdit();
+        if (state.textEdit) { $('#block-tools').hidden = true; state.editEl = null; }
       });
   }
 
@@ -723,6 +830,8 @@
         var sIdx = sectionIndexOfNode(img);
         openMenu(ev.clientX, ev.clientY, [
           { label: '删除这张图', danger: true, run: function () { deleteImage(sec, img.getAttribute('src'), sIdx); } },
+          { label: '上移', run: function () { blockOp('move', { sectionIndex: sIdx, blockIndex: blockIndexOfNode(img), dir: 'up' }).then(reloadDoc).catch(function (e) { alert('移动失败：' + e.message); }); } },
+          { label: '下移', run: function () { blockOp('move', { sectionIndex: sIdx, blockIndex: blockIndexOfNode(img), dir: 'down' }).then(reloadDoc).catch(function (e) { alert('移动失败：' + e.message); }); } },
           { label: '移动图片…', run: function () { startPlace('move', { src: img.getAttribute('src'), fromSectionIndex: sIdx, sectionIndex: sIdx }); } },
           { label: '重新框选裁剪', run: function () { openCrop('replace', { sectionId: sec, sectionIndex: sIdx, oldSrc: img.getAttribute('src') }); } }
         ]);
@@ -884,6 +993,14 @@
       if (e.key === 'Escape') { e.preventDefault(); closeModal(null); }
     });
     $('#modal').addEventListener('click', function (e) { if (e.target === $('#modal')) closeModal(null); });
+    $('#edit-text').onclick = toggleTextEdit;
+    $('#block-tools').addEventListener('click', function (ev) {
+      var b = ev.target.closest('button[data-act]');
+      if (b) { ev.preventDefault(); blockAction(b.getAttribute('data-act')); }
+    });
+    $('#block-save').onclick = saveBlock;
+    $('#block-cancel').onclick = function () { $('#block-modal').hidden = true; };
+    bindTextEdit();
     $('#edit-figs').onclick = function () {
       state.imageEdit = !state.imageEdit;
       document.body.classList.toggle('image-edit', state.imageEdit);

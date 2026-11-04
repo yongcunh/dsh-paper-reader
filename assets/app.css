@@ -384,3 +384,19 @@ body.image-edit #doc p:has(img) { position: relative; }
 .place-bar .place-tip { opacity: .9; }
 body.placing #doc p { outline: 1px dashed rgba(143,168,200,.6); cursor: pointer; }
 body.placing #doc p:hover { outline: 2px solid var(--accent); background: rgba(143,168,200,.06); }
+
+
+/* 正文按块编辑 */
+body.text-edit #doc > p, body.text-edit #doc > table,
+body.text-edit #doc > ul, body.text-edit #doc > ol,
+body.text-edit #doc > pre, body.text-edit #doc > blockquote { outline: 1px dashed rgba(143,168,200,.45); }
+body.text-edit #doc > p:hover, body.text-edit #doc > table:hover { outline: 2px solid var(--accent); }
+.block-tools { position: fixed; z-index: 66; display: flex; gap: 4px; padding: 4px; border-radius: 8px;
+  background: rgba(30,34,42,.92); box-shadow: 0 8px 24px rgba(0,0,0,.28); }
+.block-tools button { font-family: var(--sans); font-size: 12px; padding: 3px 8px; border-radius: 5px;
+  border: 1px solid rgba(255,255,255,.18); background: transparent; color: #f3efe6; cursor: pointer; }
+.block-tools button:hover { background: rgba(255,255,255,.14); }
+.block-tools button.danger { color: #ffb4a8; }
+.block-box { width: min(900px, 92vw); height: min(78vh, 720px); }
+.block-text { flex: 1; width: 100%; border: 0; resize: none; padding: 14px 16px; font-family: ui-monospace, Menlo, monospace;
+  font-size: 13px; line-height: 1.7; background: var(--paper); color: var(--ink); outline: none; }

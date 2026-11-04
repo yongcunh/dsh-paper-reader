@@ -49,6 +49,7 @@
             <button data-tab="qa" class="tab">问答 <span class="badge" id="qa-badge">0</span></button>
             <button data-tab="pdf" class="tab" id="tab-pdf">PDF</button>
             <button class="tab" id="edit-figs" title="只编辑配图，不改文字与公式">✎ 图片</button>
+            <button class="tab" id="edit-text" title="按段落编辑正文（增删改、上下移动）">✎ 正文</button>
             <button class="tab" id="add-fig" hidden>＋ 添加图片</button>
             <button data-tab="info" class="tab tab-menu" id="paper-menu" title="更多">⋯</button>
           </div>
@@ -84,6 +85,26 @@
     <span class="place-tip">点击正文段落：图片会插入到该段之前</span>
     <button id="place-end" class="ghost">放到章节末尾</button>
     <button id="place-cancel" class="ghost">取消</button>
+  </div>
+
+  <div id="block-tools" class="block-tools" hidden>
+    <button data-act="edit">编辑</button>
+    <button data-act="up">↑</button>
+    <button data-act="down">↓</button>
+    <button data-act="add">＋段</button>
+    <button data-act="del" class="danger">删除</button>
+  </div>
+
+  <div id="block-modal" class="crop-modal" hidden>
+    <div class="crop-box block-box">
+      <div class="crop-head">
+        <span class="crop-title">编辑段落（HTML 片段，公式保持 \( ... \)）</span>
+        <span class="spacer"></span>
+        <button id="block-cancel" class="ghost">取消</button>
+        <button id="block-save" class="primary">保存</button>
+      </div>
+      <textarea id="block-text" class="block-text" spellcheck="false"></textarea>
+    </div>
   </div>
 
   <div id="crop-modal" class="crop-modal" hidden>
