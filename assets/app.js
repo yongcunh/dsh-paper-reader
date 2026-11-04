@@ -565,6 +565,24 @@
 
   /* ---------------- 模型选择 ---------------- */
 
+  async function loadAgentMode () {
+    try {
+      var st = await api('/settings');
+      $('#c-mode').value = (st && st.agentMode === 'expert') ? 'expert' : 'normal';
+    } catch (e) { /* 忽略 */ }
+  }
+
+  async function setAgentMode (mode) {
+    try {
+      await api('/settings/mode', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ mode: mode })
+      });
+      var tip = mode === 'expert' ? '专家模式：代理可执行命令、安装 Python 包' : '普通模式：只做内容编辑';
+      if (window.__toast) window.__toast(tip);
+    } catch (e) { alert('切换模式失败：' + e.message); }
+  }
+
   async function loadModels() {
     var sel = $('#c-model');
     if (!sel) return;
@@ -647,6 +665,7 @@
     if (box) box.hidden = !state.consoleOpen;
     document.body.classList.toggle('console-open', state.consoleOpen);
     if (state.consoleOpen) {
+      loadAgentMode();
       loadModels();
       loadJob();
       postState();
@@ -1253,6 +1272,7 @@
     $('#crop-save').onclick = saveCrop;
     $('#crop-page').onchange = loadCropPage;
     bindCropDrag();
+    $('#c-mode').onchange = function () { setAgentMode($('#c-mode').value); };
     $('#c-model-apply').onclick = applyModel;
     applyTheme();
     if (window.matchMedia) {
