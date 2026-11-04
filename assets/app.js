@@ -659,7 +659,9 @@
     var r = el.getBoundingClientRect();
     tools.hidden = false;
     tools.style.left = Math.max(8, Math.min(window.innerWidth - 300, r.right - 250)) + 'px';
-    tools.style.top = Math.max(8, r.top - 34) + 'px';
+    var top = r.top - 38;
+    if (top < 8) top = Math.min(window.innerHeight - 40, r.bottom + 6);
+    tools.style.top = top + 'px';
     state.editEl = el;
     state.editSection = sectionIndexOfNode(el);
     state.editBlock = blockIndexOfNode(el);
@@ -722,13 +724,27 @@
 
   function bindTextEdit() {
     var doc = $('#doc');
-    doc.addEventListener('mousemove', function (ev) {
+    // 点击段落选中并固定工具条（不再用悬停，避免鼠标一移工具条就消失）
+    doc.addEventListener('click', function (ev) {
       if (!state.textEdit || !$('#block-modal').hidden) return;
+      if (ev.target.closest('a')) ev.preventDefault();
       var el = blockAt(ev.target);
-      if (el !== state.editEl) placeTools(el);
+      if (!el) return;
+      ev.stopPropagation();
+      placeTools(el);
+    }, true);
+    // 点击工具条本身不隐藏
+    $('#block-tools').addEventListener('mousedown', function (ev) { ev.stopPropagation(); });
+    // 点击其它地方隐藏；滚动时跟着重新定位
+    document.addEventListener('click', function (ev) {
+      if (!state.textEdit) return;
+      if (ev.target.closest('#block-tools') || ev.target.closest('#block-modal')) return;
+      if (ev.target.closest('#doc')) return;
+      $('#block-tools').hidden = true;
+      state.editEl = null;
     });
-    doc.addEventListener('mouseleave', function () {
-      if (state.textEdit) { $('#block-tools').hidden = true; state.editEl = null; }
+    $('.pane').addEventListener('scroll', function () {
+      if (state.textEdit && state.editEl && !$('#block-tools').hidden) placeTools(state.editEl);
     });
   }
 

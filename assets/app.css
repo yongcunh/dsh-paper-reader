@@ -393,7 +393,7 @@ body.text-edit #doc > pre, body.text-edit #doc > blockquote { outline: 1px dashe
 body.text-edit #doc > p:hover, body.text-edit #doc > table:hover { outline: 2px solid var(--accent); }
 .block-tools { position: fixed; z-index: 66; display: flex; gap: 4px; padding: 4px; border-radius: 8px;
   background: rgba(30,34,42,.92); box-shadow: 0 8px 24px rgba(0,0,0,.28); }
-.block-tools button { font-family: var(--sans); font-size: 12px; padding: 3px 8px; border-radius: 5px;
+.block-tools button { font-family: var(--sans); font-size: 12.5px; padding: 5px 12px; border-radius: 6px;
   border: 1px solid rgba(255,255,255,.18); background: transparent; color: #f3efe6; cursor: pointer; }
 .block-tools button:hover { background: rgba(255,255,255,.14); }
 .block-tools button.danger { color: #ffb4a8; }
