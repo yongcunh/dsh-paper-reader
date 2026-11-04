@@ -7,6 +7,8 @@
 """
 import json, re, sys
 from pathlib import Path
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "vendor"))
 
 def main():
     pdf_path, outdir = Path(sys.argv[1]), Path(sys.argv[2])

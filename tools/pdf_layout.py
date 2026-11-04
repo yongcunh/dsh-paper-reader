@@ -10,6 +10,8 @@
 """
 import json, re, sys
 from pypdf import PdfReader
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "vendor"))
 
 CAP = re.compile(r"^(Figure|Fig\.?|FIGURE|Table|TABLE)\s*([0-9]+[a-z]?)\s*[:.]")
 

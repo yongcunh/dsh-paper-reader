@@ -8,6 +8,8 @@
 import json, os, re, shutil, subprocess, sys
 from io import BytesIO
 from pathlib import Path
+import sys as _sys, os as _os
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "vendor"))
 
 PIL = None
 try:
