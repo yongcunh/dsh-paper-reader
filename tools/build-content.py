@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """把现有 HTML 论文页转换为 paper-reader 的内容目录。
 
-用法: python3 tools/build-content.py [--only quant|llm]
+用法: python3 tools/build-content.py [--only quant|llm] [--paper <id>]
 输出: content/index.json + content/<id>/{meta.json,zh.html,en.txt,figures/}
 """
 import json, os, re, shutil, sys, copy
@@ -277,6 +277,9 @@ def main():
     only = None
     if "--only" in sys.argv:
         only = sys.argv[sys.argv.index("--only") + 1]
+    only_paper = None
+    if "--paper" in sys.argv:
+        only_paper = sys.argv[sys.argv.index("--paper") + 1]
 
     CONTENT.mkdir(parents=True, exist_ok=True)
     index = []
@@ -302,6 +305,8 @@ def main():
         if only and only != key:
             continue
         for pid, src in papers:
+            if only_paper and pid != only_paper:
+                continue
             if not (src / "index.html").exists():
                 print("skip", pid)
                 continue
@@ -309,6 +314,16 @@ def main():
             index.append(meta)
             print(f"built {pid}: {len(meta['sections'])} sections, {meta['figures']} figs, en={meta['hasOriginal']}, pdf={meta['hasPdf']}")
 
+    if only_paper:
+        old_file = CONTENT / "index.json"
+        if old_file.exists():
+            try:
+                prev = json.loads(old_file.read_text(encoding="utf-8"))
+                merged = {p["id"]: p for p in prev}
+                merged.update({p["id"]: p for p in index})
+                index = sorted(merged.values(), key=lambda x: x["id"])
+            except Exception:
+                pass
     (CONTENT / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=1), encoding="utf-8")
     cols_file = CONTENT / "collections.json"
     if not cols_file.exists():
