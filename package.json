@@ -39,5 +39,9 @@
       ],
       "platform": "web"
     }
+  },
+  "homepage": "https://github.com/JoanYu/dsh-paper-reader#readme",
+  "bugs": {
+    "url": "https://github.com/JoanYu/dsh-paper-reader/issues"
   }
 }

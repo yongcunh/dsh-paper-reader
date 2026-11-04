@@ -39,12 +39,19 @@ tools/.venv/bin/pip install pypdf pillow pdfplumber
 ```
 
 ```bash
-# 进入插件目录
+# 方式一：从本地目录安装
 cd dsh-paper-reader
-
-# 安装到某个 profile（示例：desktop）
 dsh plugin --profile desktop add .
+
+# 方式二：直接从 GitHub 安装（注意必须带协议前缀）
+dsh plugin --profile desktop add git+https://github.com/JoanYu/dsh-paper-reader.git
+# 或者
+dsh plugin --profile desktop add github:JoanYu/dsh-paper-reader
 ```
+
+> 不要写成 `github.com:JoanYu/dsh-paper-reader.git`，pnpm 会报
+> `ERR_PNPM_UNSUPPORTED_PROTOCOL: Unsupported protocol "github.com:"`。
+> `git@github.com:...` 只适用于本机已配置 SSH key 的情况。
 
 安装后重启 DSH，左栏出现「论文阅读」入口。
 
