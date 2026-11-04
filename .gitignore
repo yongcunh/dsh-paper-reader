@@ -1,0 +1,17 @@
+node_modules/
+.pylibs/
+__pycache__/
+*.pyc
+.DS_Store
+
+# 论文内容与生成的素材不入库（版权与体积）
+content/
+!content.example/
+_pages/
+*.pdf
+job.json
+sections.json
+
+# 本地临时文件
+*.log
+.tmp/

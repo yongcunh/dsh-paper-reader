@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>论文阅读</title>
+<link rel="stylesheet" href="assets/katex/katex.min.css" />
+<link rel="stylesheet" href="assets/app.css" />
+<script defer src="assets/katex/katex.min.js"></script>
+<script defer src="assets/katex/contrib/auto-render.min.js"></script>
+<script defer src="assets/app.js"></script>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand"><span class="mark">◈</span><span>论文阅读</span></div>
+    <div class="search">
+      <input id="q" type="search" placeholder="搜索标题、章节、正文…（⌘K）" autocomplete="off" />
+    </div>
+    <button id="upload-btn" class="up-btn" title="上传 PDF，自动翻译并建论文">＋ 上传 PDF</button>
+    <button id="theme-btn" class="up-btn" title="切换深色 / 浅色">🌙</button>
+    <button id="console-toggle" class="log-btn" title="运行日志 / 给翻译任务下指令"><span class="dot" id="job-dot"></span>日志</button>
+    <input id="upload-file" type="file" accept="application/pdf,.pdf" hidden />
+    <div class="collections" id="collections"></div>
+  </header>
+
+  <main class="main">
+    <aside class="library" id="library">
+      <div class="lib-head"><span id="lib-count">全部论文</span></div>
+      <div class="lib-list" id="lib-list"></div>
+    </aside>
+
+    <section class="reader" id="reader">
+      <div class="empty" id="empty">
+        <div class="empty-mark">◈</div>
+        <p>从左侧选择一篇论文，或上传一份 PDF</p>
+        <p class="dim">中文翻译（TeX 渲染）、PDF 原文、章节大纲、全文搜索，以及直接向 DeepSeek 提问。</p>
+      </div>
+
+      <div class="paper" id="paper" hidden>
+        <div class="paper-head">
+          <div class="titles">
+            <h1 id="p-title"></h1>
+            <div class="p-en" id="p-title-en"></div>
+            <div class="p-meta" id="p-meta"></div>
+          </div>
+          <div class="tabs" id="tabs">
+            <button data-tab="zh" class="tab active">中文</button>
+            <button data-tab="qa" class="tab">问答 <span class="badge" id="qa-badge">0</span></button>
+            <button data-tab="pdf" class="tab" id="tab-pdf">PDF</button>
+            <button class="tab" id="edit-figs" title="只编辑配图，不改文字与公式">✎ 图片</button>
+            <button class="tab" id="add-fig" hidden>＋ 添加图片</button>
+            <button data-tab="info" class="tab tab-menu" id="paper-menu" title="更多">⋯</button>
+          </div>
+        </div>
+
+        <div class="body">
+          <nav class="outline" id="outline"></nav>
+          <div class="pane">
+            <article class="doc" id="doc"></article>
+            <div class="pdf-pane" id="pdf-pane" hidden>
+              <iframe id="pdf-frame" title="PDF"></iframe>
+            </div>
+            <div class="qa" id="qa-pane" hidden>
+              <div class="qa-list" id="qa-list"></div>
+              <div class="qa-compose">
+                <div class="qa-ctx" id="qa-ctx">提问位置：<b>整篇论文</b></div>
+                <textarea id="qa-input" rows="3" placeholder="就当前章节向 DeepSeek 提问…（⌘↵ 发送）"></textarea>
+                <div class="qa-actions">
+                  <button id="qa-send" class="primary">提问</button>
+                  <button id="qa-clear-ctx" class="ghost">清除章节</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="ctx-menu" class="ctx-menu" hidden></div>
+
+  <div id="place-bar" class="place-bar" hidden>
+    <span class="place-tip">点击正文段落：图片会插入到该段之前</span>
+    <button id="place-end" class="ghost">放到章节末尾</button>
+    <button id="place-cancel" class="ghost">取消</button>
+  </div>
+
+  <div id="crop-modal" class="crop-modal" hidden>
+    <div class="crop-box">
+      <div class="crop-head">
+        <span class="crop-title">框选图片区域（只影响图片）</span>
+        <label class="crop-page">页码 <input id="crop-page" type="number" min="1" value="1" /></label>
+        <select id="crop-section" class="crop-section" title="插入/替换到哪一节"></select>
+        <span class="spacer"></span>
+        <button id="crop-cancel" class="ghost">取消</button>
+        <button id="crop-save" class="primary">保存</button>
+      </div>
+      <div class="crop-stage" id="crop-stage">
+        <img id="crop-img" alt="page" />
+        <div id="crop-rect" class="crop-rect" hidden></div>
+      </div>
+      <div class="crop-tip" id="crop-tip">在页面上拖动框选要截取的图片区域</div>
+    </div>
+  </div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-title" id="modal-title"></div>
+      <input id="modal-input" class="modal-input" />
+      <div class="modal-actions">
+        <button id="modal-cancel" class="ghost">取消</button>
+        <button id="modal-ok" class="primary">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="console" id="console" hidden>
+    <div class="console-head">
+      <span class="c-title">运行状态</span>
+      <span class="c-status" id="c-status">空闲</span>
+      <select id="c-model" class="c-model" title="翻译使用的模型"></select>
+      <button id="c-model-apply" class="ghost">应用</button>
+      <span class="spacer"></span>
+      <button id="c-cancel" class="ghost danger" hidden>中断</button>
+      <button id="c-reload" class="ghost">刷新</button>
+      <button id="c-close" class="ghost">收起</button>
+    </div>
+    <div class="console-body" id="c-log"></div>
+    <div class="console-input">
+      <div class="c-chips">
+        <button data-cmd="重新解析这份 PDF，补全标题、作者、年份和配图">重新解析（补全信息）</button>
+        <button data-cmd="全部重译">全部重译</button>
+        <button data-cmd="只重译失败的章节">重译失败节</button>
+      </div>
+      <div class="c-row">
+        <textarea id="c-input" rows="2" placeholder="告诉它哪里不对、如何继续，例如：「第 3 节公式没翻译好，请重译」或「全部重译，标题别太长」"></textarea>
+        <button id="c-send" class="primary">发送指令</button>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

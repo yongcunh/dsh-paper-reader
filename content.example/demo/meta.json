@@ -1,0 +1,16 @@
+{
+  "id": "demo",
+  "collectionId": "drafts",
+  "title": "Demo Paper: How to Structure Content",
+  "titleZh": "示例论文：内容结构说明",
+  "authors": "Ada Lovelace, Alan Turing",
+  "venue": "Example Conf.",
+  "year": "2025",
+  "abstract": "这是示例摘要。真实论文由 upload 或 build-content 生成。",
+  "sections": [
+    { "id": "sec-1", "title": "1 引言", "level": 2, "text": "", "status": "ok" },
+    { "id": "sec-2", "title": "2 方法", "level": 2, "text": "", "status": "ok" }
+  ],
+  "status": "ready",
+  "hasPdf": false
+}

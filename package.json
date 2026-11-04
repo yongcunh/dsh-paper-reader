@@ -1,0 +1,43 @@
+{
+  "name": "dsh-paper-reader",
+  "version": "0.2.0",
+  "description": "DSH 论文阅读插件：PDF 自动翻译（TeX 渲染）、章节大纲、全文搜索、页内问答与手动配图编辑，框架与内容分离。",
+  "type": "module",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "tools"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "pdf",
+    "translation",
+    "paper-reader",
+    "katex"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<your-name>/dsh-paper-reader.git"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-primitives"
+      ],
+      "platform": "web"
+    }
+  }
+}

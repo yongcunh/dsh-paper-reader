@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""从 PDF 中提取真正的配图：优先内嵌图片，否则按「Figure N」图注定位区域裁剪。
+
+用法: python3 tools/extract_figures.py <pdf> <outdir> [--scale 2.0]
+输出: <outdir>/figures/*.png + <outdir>/figures.json
+      [{file, page, caption, kind}]
+"""
+import json, os, re, subprocess, sys
+from io import BytesIO
+from pathlib import Path
+
+PIL = None
+try:
+    from PIL import Image
+    PIL = Image
+except Exception:
+    PIL = None
+
+CAP = re.compile(r"^(Figure|Fig\.?|FIGURE|Table|TABLE)\s*([0-9]+[a-z]?)\s*[:.]?\s*(.*)$")
+HERE = Path(__file__).resolve().parent
+
+
+def render_pages(pdf, out, scale):
+    subprocess.run(
+        ["swift", str(HERE / "render_pages.swift"), str(pdf), str(out), str(scale)],
+        check=True, capture_output=True
+    )
+
+
+def main():
+    if len(sys.argv) < 3:
+        print(__doc__); return
+    pdf, outdir = Path(sys.argv[1]), Path(sys.argv[2])
+    scale = 2.0
+    if "--scale" in sys.argv:
+        scale = float(sys.argv[sys.argv.index("--scale") + 1])
+    figdir = outdir / "figures"
+    figdir.mkdir(parents=True, exist_ok=True)
+
+    from pypdf import PdfReader
+    reader = PdfReader(str(pdf))
+
+    items = []
+
+    # 1) 内嵌位图（按页面上的实际显示尺寸过滤 emoji / 小图标）
+    if PIL:
+        from pypdf.generic import ContentStream
+        for i, page in enumerate(reader.pages):
+            # 收集每个图片 XObject 在页面上的显示尺寸（pt）
+            sizes = {}
+            try:
+                cs = ContentStream(page.get_contents(), reader)
+                ctm = [1, 0, 0, 1, 0, 0]
+                stack = []
+                def mul(m, n):
+                    return [m[0]*n[0]+m[2]*n[1], m[1]*n[0]+m[3]*n[1],
+                            m[0]*n[2]+m[2]*n[3], m[1]*n[2]+m[3]*n[3],
+                            m[0]*n[4]+m[2]*n[5]+m[4], m[1]*n[4]+m[3]*n[5]+m[5]]
+                for operands, op in cs.operations:
+                    if op == b"q":
+                        stack.append(list(ctm))
+                    elif op == b"Q":
+                        if stack: ctm = stack.pop()
+                    elif op == b"cm":
+                        nums = [float(x) for x in operands]
+                        ctm = mul(nums, ctm)
+                    elif op == b"Do":
+                        name = str(operands[0])
+                        sizes[name] = (abs(ctm[0]), abs(ctm[3]))
+            except Exception:
+                sizes = {}
+
+            res = page.get("/Resources", {})
+            xobjs = res.get("/XObject", {}) if res else {}
+            for name, ref in xobjs.items():
+                try:
+                    obj = ref.get_object()
+                    if obj.get("/Subtype") != "/Image":
+                        continue
+                    w_pt, h_pt = sizes.get(str(name), (0, 0))
+                    if w_pt and (w_pt < 60 or h_pt < 60):
+                        continue  # 页面上的小图标 / emoji
+                    img = obj.image
+                    pil = PIL.open(BytesIO(img.data))
+                    if pil.width < 120 or pil.height < 80:
+                        continue
+                    if pil.mode in ("P", "LA", "RGBA"):
+                        pil = pil.convert("RGB")
+                    fname = f"fig-p{i+1}-{str(name).replace('/', '_')}.png"
+                    pil.save(figdir / fname)
+                    items.append({"file": fname, "page": i + 1, "caption": "", "kind": "embedded"})
+                except Exception:
+                    continue
+
+    # 2) 图注定位 + 裁剪
+    pages_needed = {}
+    captions = []  # {page, top, bottom, num, split}
+    for i, page in enumerate(reader.pages):
+        lines = {}
+        def visit(text, cm, tm, font_dict, font_size, _i=i):
+            t = (text or "").strip()
+            if not t:
+                return
+            lines.setdefault(round(tm[5] / 2) * 2, []).append((round(tm[4], 1), t))
+        try:
+            page.extract_text(visitor_text=visit)
+        except Exception as e:
+            print("page", i + 1, "text error", e, file=sys.stderr)
+            continue
+        ys = sorted(lines.keys())
+        page_h = float(page.mediabox.height)
+        page_w = float(page.mediabox.width)
+        for idx, y in enumerate(ys):
+            frags = sorted(lines[y])
+            txt = "".join(t for _, t in frags)
+            matches = list(CAP.finditer(txt))
+            if not matches:
+                continue
+            # 图注上方没有任何文本行时，图就是页面顶部到图注之间的整块
+            if idx == 0:
+                top, bottom = 24, y - 14
+            else:
+                above = ys[idx + 1] if idx + 1 < len(ys) else page_h - 24
+                top = above - 6
+                bottom = y + 4
+            if top - bottom < 55:
+                # 图注在图形上方（表格常见）：向下裁剪；下方文本太近时给足高度
+                below = ys[idx - 1] if idx > 0 else None
+                top = y - 6
+                bottom = (below + 6) if below is not None else max(20, y - 300)
+                if top - bottom < 120:
+                    bottom = max(20, y - 300)
+                if top - bottom < 60:
+                    continue
+            label = matches[0].group(1).lower()
+            kind = "table" if label.startswith("tab") else "figure"
+            captions.append({"page": i + 1, "y": y, "top": top, "bottom": bottom, "num": matches[0].group(2), "kind": kind, "split": "full", "w": page_w, "h": page_h, "text": txt[:160]})
+            pages_needed[i + 1] = True
+
+    if not captions:
+        (outdir / "figures.json").write_text("[]", encoding="utf-8")
+        print(json.dumps({"ok": True, "figures": 0}))
+        return
+
+    tmp = outdir / "_pages"
+    tmp.mkdir(parents=True, exist_ok=True)
+    missing = [str(p) for p in pages_needed if not (tmp / f"page{p}.png").exists()]
+    if missing:
+        render_pages(pdf, tmp, scale)
+
+    if not PIL:
+        print(json.dumps({"ok": False, "error": "需要 Pillow 才能裁剪"}))
+        return
+
+    for c in captions:
+        img_path = tmp / f"page{c['page']}.png"
+        if not img_path.exists():
+            continue
+        im = PIL.open(img_path)
+        W, H = im.size
+        sy = H / c["h"]
+        gray = im.convert("L")
+        px = gray.load()
+        step = 2
+        ink = []
+        for y in range(0, H, step):
+            dark = 0
+            for x in range(0, W, 8):
+                if px[x, y] < 235:
+                    dark += 1
+            ink.append(dark)
+        runs = []
+        run_start = None
+        for i, v in enumerate(ink):
+            on = v > 1
+            if on and run_start is None:
+                run_start = i
+            elif not on and run_start is not None:
+                runs.append((run_start * step, i * step))
+                run_start = None
+        if run_start is not None:
+            runs.append((run_start * step, len(ink) * step))
+        cap_top = int((c["y"] - 12) * sy)
+        cap_bottom = int((c["y"] + 6) * sy)
+        above = [r for r in runs if r[1] <= cap_top + 4 and (cap_top - r[1]) < 200 and (r[1] - r[0]) > 80]
+        below = [r for r in runs if r[0] >= cap_bottom - 4 and (r[0] - cap_bottom) < 200 and (r[1] - r[0]) > 80]
+        block = max(above, key=lambda r: r[1]) if above else (min(below, key=lambda r: r[0]) if below else None)
+        if not block:
+            continue
+        top_px, bot_px = max(0, block[0] - 6), min(H, block[1] + 6)
+        col_ink = []
+        for x in range(0, W, 4):
+            dark = 0
+            for y in range(top_px, bot_px, 6):
+                if px[x, y] < 235:
+                    dark += 1
+            col_ink.append(dark)
+        xs = [i * 4 for i, v in enumerate(col_ink) if v > 0]
+        left = max(0, (min(xs) if xs else 0) - 8)
+        right = min(W, (max(xs) if xs else W) + 8)
+        crop = im.crop((left, top_px, right, bot_px))
+        if crop.width < 200 or crop.height < 60:
+            continue
+        name = f"fig-p{c['page']}-{c['num']}.png"
+        crop.save(figdir / name)
+        items.append({"file": name, "page": c["page"], "num": c.get("num", ""), "kind": c.get("kind", "figure"), "caption": c.get("text", "")})
+
+    (outdir / "figures.json").write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+    print(json.dumps({"ok": True, "figures": len(items)}))
+
+
+if __name__ == "__main__":
+    main()
