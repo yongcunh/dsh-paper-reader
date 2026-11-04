@@ -21,10 +21,18 @@ HERE = Path(__file__).resolve().parent
 
 
 def render_pages(pdf, out, scale):
-    subprocess.run(
-        ["swift", str(HERE / "render_pages.swift"), str(pdf), str(out), str(scale)],
-        check=True, capture_output=True
-    )
+    try:
+        subprocess.run(
+            ["swift", str(HERE / "render_pages.swift"), str(pdf), str(out), str(scale)],
+            check=True, capture_output=True
+        )
+        return
+    except Exception:
+        pass
+    # Linux 回退：poppler
+    dpi = int(72 * scale)
+    subprocess.run(["pdftoppm", "-png", "-r", str(dpi), str(pdf), str(Path(out) / "page")],
+                   check=True, capture_output=True)
 
 
 def main():
@@ -153,7 +161,9 @@ def main():
         return
 
     for c in captions:
-        img_path = tmp / f"page{c['page']}.png"
+        img_path = next((tmp / n for n in (
+            f"page{c['page']}.png", f"page-{c['page']}.png",
+            f"page-{c['page']:02d}.png", f"page-{c['page']:03d}.png") if (tmp / n).exists()), None)
         if not img_path.exists():
             continue
         im = PIL.open(img_path)
