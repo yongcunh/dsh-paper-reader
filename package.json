@@ -1,6 +1,6 @@
 {
   "name": "dsh-paper-reader",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "DSH 论文阅读插件：PDF 自动翻译（TeX 渲染）、章节大纲、全文搜索、页内问答与手动配图编辑，框架与内容分离。",
   "type": "module",
   "license": "MIT",

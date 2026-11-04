@@ -691,6 +691,11 @@
       catch (e) { alert('移动失败：' + e.message); }
       return;
     }
+    if (act === 'img-above' || act === 'img-below') {
+      openCrop('insertAt', { sectionIndex: si, blockIndex: state.editBlock + (act === 'img-below' ? 1 : 0) });
+      $('#block-tools').hidden = true;
+      return;
+    }
     if (act === 'add') {
       try { await blockOp('insert', { sectionIndex: si, blockIndex: bi, html: '<p>新段落</p>' }); await reloadDoc(); }
       catch (e) { alert('新增失败：' + e.message); }
@@ -872,6 +877,7 @@
     state.cropMode = mode;
     state.cropOldSrc = opts.oldSrc || '';
     state.cropSectionIndex = (opts.sectionIndex === undefined ? -1 : opts.sectionIndex);
+    state.cropBlockIndex = (opts.blockIndex === undefined ? null : opts.blockIndex);
     var sel = $('#crop-section');
     sel.innerHTML = '';
     (state.paper.meta.sections || []).forEach(function (s) {
@@ -947,7 +953,31 @@
       });
       var src = '/paper-reader/api/paper/' + id + '/figures/' + c.file;
       var payload = { sectionId: sectionId, sectionIndex: $('#crop-section').selectedIndex, src: src, file: c.file };
+      if (state.cropMode === 'insertAt') {
+        var chosen = $('#crop-section').selectedIndex;
+        var at = (chosen === state.cropSectionIndex) ? state.cropBlockIndex : -1;
+        await api('/paper/' + encodeURIComponent(id) + '/figure/insert', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sectionIndex: chosen, blockIndex: at, src: src, file: c.file })
+        });
+        $('#crop-modal').hidden = true;
+        state.cropRect = null;
+        await reloadDoc();
+        return;
+      }
       if (state.cropMode === 'replace') { payload.oldSrc = state.cropOldSrc; }
+      if (state.cropMode === 'insertAt') {
+        var chosen = $('#crop-section').selectedIndex;
+        var at = (chosen === state.cropSectionIndex) ? state.cropBlockIndex : -1;
+        await api('/paper/' + encodeURIComponent(id) + '/figure/insert', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ sectionIndex: chosen, blockIndex: at, src: src, file: c.file })
+        });
+        $('#crop-modal').hidden = true;
+        state.cropRect = null;
+        await reloadDoc();
+        return;
+      }
       if (state.cropMode === 'replace') {
         await api('/paper/' + encodeURIComponent(id) + '/figure/replace', {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
