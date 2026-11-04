@@ -15,3 +15,7 @@ sections.json
 # 本地临时文件
 *.log
 .tmp/
+
+# Python 虚拟环境（首次运行自动创建）
+tools/.venv/
+tools/.pylibs/

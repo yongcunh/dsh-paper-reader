@@ -18,6 +18,7 @@
 | 自动翻译 | 按章节调用模型翻译为中文，公式保留 `\( ... \)`，KaTeX 渲染 |
 | 元信息 | 自动抽取标题（中/英）、作者、会议、年份、摘要 |
 | 配图 | 内嵌位图按显示尺寸过滤（自动丢掉 emoji/小图标）；矢量图按图注区域裁剪 |
+| 表格 | `pdfplumber` 抽取表格结构，代理可整理合并单元格后转成 HTML 插入正文 |
 | 目录与搜索 | 章节大纲、滚动高亮、标题/章节/正文全文搜索（⌘K） |
 | 页内问答 | 选中章节后提问，DeepSeek 作答并保存在该论文的问答库 |
 | 运行日志 | 逐条记录解析、切节、每节翻译、失败原因与耗时；可中断任务 |
@@ -28,7 +29,14 @@
 
 ## 安装
 
-要求：DSH（桌面版或 `dsh` CLI）、Node.js ≥ 20；PDF 解析需要 Python 3（`pypdf`、`Pillow`），macOS 上额外使用系统 `swift` 做页面渲染。
+要求：DSH（桌面版或 `dsh` CLI）、Node.js ≥ 20；PDF 解析需要 Python 3，macOS 上额外使用系统 `swift` 做页面渲染。
+
+**Python 依赖会自动安装**：首次执行解析/裁剪/表格抽取时，插件会用系统 `python3` 在 `tools/.venv` 建一个虚拟环境并安装 `pypdf`、`pillow`、`pdfplumber`（需要网络）。也可手动预装：
+
+```bash
+python3 -m venv tools/.venv
+tools/.venv/bin/pip install pypdf pillow pdfplumber
+```
 
 ```bash
 # 进入插件目录
@@ -106,6 +114,7 @@ content/
 | `tools/build-content.py [--only quant\|llm]` | 从 HTML 版论文批量生成 `content/` |
 | `tools/backfill-pdfs.py` | 把工作区已有 PDF 复制进 `content/<id>/paper.pdf` |
 | `tools/check_quality.py` | 对照原始网页检查章节/图/表结构 |
+| `tools/pdf_tables.py <pdf> <page>` | 抽取某页表格为二维数组（供代理转 HTML） |
 | `tools/check_upload.py <id>` | 检查上传论文的成品完整度 |
 | `tools/dev-server.mjs` | 本地开发服务器（mock 模型） |
 | `tools/install.sh` | 安装插件到 DSH profile 的辅助脚本 |
