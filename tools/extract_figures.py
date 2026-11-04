@@ -5,7 +5,7 @@
 输出: <outdir>/figures/*.png + <outdir>/figures.json
       [{file, page, caption, kind}]
 """
-import json, os, re, subprocess, sys
+import json, os, re, shutil, subprocess, sys
 from io import BytesIO
 from pathlib import Path
 
@@ -20,19 +20,27 @@ CAP = re.compile(r"^(Figure|Fig\.?|FIGURE|Table|TABLE)\s*([0-9]+[a-z]?)\s*[:.]?\
 HERE = Path(__file__).resolve().parent
 
 
+def _has(cmd):
+    return shutil.which(cmd) is not None
+
+
 def render_pages(pdf, out, scale):
-    try:
-        subprocess.run(
-            ["swift", str(HERE / "render_pages.swift"), str(pdf), str(out), str(scale)],
-            check=True, capture_output=True
-        )
+    """macOS 用 swift(PDFKit)，Linux 用 poppler(pdftoppm)。"""
+    if _has("swift"):
+        try:
+            subprocess.run(
+                ["swift", str(HERE / "render_pages.swift"), str(pdf), str(out), str(scale)],
+                check=True, capture_output=True
+            )
+            return
+        except Exception:
+            pass
+    if _has("pdftoppm"):
+        dpi = int(72 * scale)
+        subprocess.run(["pdftoppm", "-png", "-r", str(dpi), str(pdf), str(Path(out) / "page")],
+                       check=True, capture_output=True)
         return
-    except Exception:
-        pass
-    # Linux 回退：poppler
-    dpi = int(72 * scale)
-    subprocess.run(["pdftoppm", "-png", "-r", str(dpi), str(pdf), str(Path(out) / "page")],
-                   check=True, capture_output=True)
+    raise RuntimeError("缺少页面渲染器：macOS 需要 swift(PDFKit)，Linux 需要 poppler 的 pdftoppm")
 
 
 def main():

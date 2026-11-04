@@ -31,6 +31,15 @@
 
 要求：DSH（桌面版或 `dsh` CLI）、Node.js ≥ 20；PDF 解析需要 Python 3，macOS 上额外使用系统 `swift` 做页面渲染。
 
+**依赖按操作系统自动准备**（首次使用时进行，失败只降级、不影响启动）：
+
+| 系统 | 页面渲染 | Python 依赖 |
+|---|---|---|
+| macOS | `swift`（系统自带 PDFKit/Xcode CLT） | 系统 `python3` → `tools/.venv`：`pypdf`、`pillow`、`pdfplumber` |
+| Linux | `poppler` 的 `pdftoppm`（缺失时若为 root 会自动 `apt-get/apk/yum install poppler-utils`） | 同上 |
+
+若系统缺 `python3-venv`，会自动退回 `--system-site-packages`。渲染器与 Python 都不可用时，**仅配图降级**（正文翻译照常）。
+
 **Python 依赖会自动安装**：首次执行解析/裁剪/表格抽取时，插件会用系统 `python3` 在 `tools/.venv` 建一个虚拟环境并安装 `pypdf`、`pillow`、`pdfplumber`（需要网络）。也可手动预装：
 
 ```bash
