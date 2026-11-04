@@ -21,6 +21,9 @@
   }
 
   var state = {
+    sysLogAfter: 0,
+    sysLogTimer: null,
+    logTab: 'job',
     papers: [],
     collections: [],
     collection: 'all',
@@ -647,7 +650,10 @@
       loadModels();
       loadJob();
       postState();
+      switchLogTab(state.logTab || 'job');
       var log = $('#c-log'); if (log) log.scrollTop = log.scrollHeight;
+    } else {
+      stopSysLogPoll();
     }
   }
   async function sendInstruction() {
@@ -669,6 +675,62 @@
     } finally {
       btn.disabled = false; btn.textContent = '发送指令';
     }
+  }
+
+  /* ---------------- 系统日志 ---------------- */
+
+  var SYS_LEVEL = { info: 'INFO', ok: 'OK', warn: 'WARN', error: 'ERR' };
+
+  function fmtTime (ts) {
+    var d = new Date(ts || Date.now());
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+  }
+
+  function renderSysEntries (entries) {
+    var box = $('#c-sys');
+    if (!entries.length) return;
+    var atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 24;
+    entries.forEach(function (e) {
+      var row = document.createElement('div');
+      row.className = 'c-sys-row ' + (e.level || 'info');
+      row.innerHTML = '<span class="t">' + fmtTime(e.ts) + '</span>' +
+        '<span class="lv">' + (SYS_LEVEL[e.level] || 'INFO') + '</span>' +
+        '<span class="msg"></span>';
+      row.querySelector('.msg').textContent = e.text;
+      box.appendChild(row);
+    });
+    while (box.childElementCount > 800) box.removeChild(box.firstElementChild);
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  async function pollSysLog (force) {
+    if (state.logTab !== 'sys' && !force) return;
+    try {
+      var r = await api('/logs?after=' + state.sysLogAfter);
+      if (r && r.entries && r.entries.length) {
+        state.sysLogAfter = r.now || state.sysLogAfter;
+        renderSysEntries(r.entries);
+      }
+    } catch (e) { /* 忽略轮询错误 */ }
+  }
+
+  function startSysLogPoll () {
+    if (state.sysLogTimer) return;
+    state.sysLogTimer = setInterval(function () { pollSysLog(false); }, 2000);
+  }
+  function stopSysLogPoll () {
+    if (state.sysLogTimer) { clearInterval(state.sysLogTimer); state.sysLogTimer = null; }
+  }
+
+  function switchLogTab (tab) {
+    state.logTab = tab;
+    $('#c-tab-job').classList.toggle('active', tab === 'job');
+    $('#c-tab-sys').classList.toggle('active', tab === 'sys');
+    $('#c-log').hidden = tab !== 'job';
+    $('#c-sys').hidden = tab !== 'sys';
+    $('#c-sys-clear').hidden = tab !== 'sys';
+    if (tab === 'sys') { startSysLogPoll(); pollSysLog(true); }
+    else stopSysLogPoll();
   }
 
   /* ---------------- 正文按块编辑 ---------------- */
@@ -1157,6 +1219,9 @@
       var b = ev.target.closest('button[data-act]');
       if (b) { ev.preventDefault(); blockAction(b.getAttribute('data-act')); }
     });
+    $('#c-tab-job').onclick = function () { switchLogTab('job'); };
+    $('#c-tab-sys').onclick = function () { switchLogTab('sys'); };
+    $('#c-sys-clear').onclick = function () { $('#c-sys').innerHTML = ''; };
     $('#block-save').onclick = saveBlock;
     $('#block-cancel').onclick = function () { $('#block-modal').hidden = true; };
     bindTextEdit();

@@ -149,7 +149,14 @@
       <button id="c-reload" class="ghost">刷新</button>
       <button id="c-close" class="ghost">收起</button>
     </div>
+    <div class="c-tabs">
+      <button id="c-tab-job" class="c-tab active">任务日志</button>
+      <button id="c-tab-sys" class="c-tab">系统日志</button>
+      <span class="spacer"></span>
+      <button id="c-sys-clear" class="ghost" hidden>清空</button>
+    </div>
     <div class="console-body" id="c-log"></div>
+    <div class="console-body" id="c-sys" hidden></div>
     <div class="console-input">
       <div class="c-chips">
         <button data-cmd="重新解析这份 PDF，补全标题、作者、年份和配图">重新解析（补全信息）</button>
