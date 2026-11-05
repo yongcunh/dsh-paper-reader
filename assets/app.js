@@ -1299,6 +1299,13 @@
         await loadLibrary();
       } catch (e) { alert('中断失败：' + e.message); }
     };
+    $('#c-review').onclick = async function () {
+      if (!state.paper) return alert('先打开一篇论文');
+      try {
+        await api('/paper/' + encodeURIComponent(state.paper.meta.id) + '/review', { method: 'POST' });
+        await loadJob();
+      } catch (e) { alert('自检启动失败：' + e.message); }
+    };
     $('#c-send').onclick = sendInstruction;
     $$('#console .c-chips button').forEach(function (b) {
       b.onclick = function () {
