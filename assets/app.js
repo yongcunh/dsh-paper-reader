@@ -569,6 +569,7 @@
     try {
       var st = await api('/settings');
       $('#c-mode').value = (st && st.agentMode === 'expert') ? 'expert' : 'normal';
+      $('#c-turns').value = String((st && st.agentMaxTurns) || 120);
     } catch (e) { /* 忽略 */ }
   }
 
@@ -1273,6 +1274,11 @@
     $('#crop-page').onchange = loadCropPage;
     bindCropDrag();
     $('#c-mode').onchange = function () { setAgentMode($('#c-mode').value); };
+    $('#c-turns').onchange = async function () {
+      try {
+        await api('/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ agentMaxTurns: Number($('#c-turns').value) }) });
+      } catch (e) { alert('保存失败：' + e.message); }
+    };
     $('#c-model-apply').onclick = applyModel;
     applyTheme();
     if (window.matchMedia) {

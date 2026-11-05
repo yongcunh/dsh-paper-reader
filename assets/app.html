@@ -142,6 +142,12 @@
     <div class="console-head">
       <span class="c-title">运行状态</span>
       <span class="c-status" id="c-status">空闲</span>
+      <select id="c-turns" class="c-model" title="每次指令的最大执行步数">
+        <option value="60">60 步</option>
+        <option value="120" selected>120 步</option>
+        <option value="300">300 步</option>
+        <option value="500">500 步</option>
+      </select>
       <select id="c-mode" class="c-model" title="代理模式：专家模式可执行命令、安装依赖">
         <option value="normal">普通模式</option>
         <option value="expert">专家模式</option>
