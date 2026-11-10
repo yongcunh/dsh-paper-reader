@@ -27,9 +27,15 @@ def main():
         pages.append({"n": i + 1, "text": text})
 
     images = []
+    pil_ok = False
     try:
         from PIL import Image
         from io import BytesIO
+        pil_ok = True
+    except Exception:
+        # macOS 硬化运行时：import PIL 可以，from PIL import Image 会因原生扩展 Team ID 校验失败
+        pil_ok = False
+    if pil_ok:
         for i, page in enumerate(reader.pages):
             try:
                 imgs = list(page.images)
@@ -49,8 +55,6 @@ def main():
                     images.append({"file": name, "page": i + 1, "w": w, "h": h})
                 except Exception:
                     continue
-    except Exception:
-        pass
 
     info = {}
     try:
@@ -74,6 +78,7 @@ def main():
         "title": title,
         "pages": pages,
         "images": images,
+        "pil": pil_ok,
         "info": info,
     }, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({"ok": True, "pages": len(pages), "images": len(images)}))

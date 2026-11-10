@@ -88,16 +88,23 @@ body { background: var(--bg); color: var(--ink); font-family: var(--serif); -web
 .outline a.active { border-left-color: var(--accent); color: var(--accent); background: #f2f6fb; }
 
 .pane { flex: 1; min-width: 0; overflow-y: auto; position: relative; }
-.doc { padding: 22px 34px 80px; max-width: 860px; margin: 0 auto; font-size: 16px; line-height: 1.85; color: var(--ink); }
-.doc h2 { font-size: 20px; margin: 30px 0 10px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
-.doc h3 { font-size: 16.5px; margin: 22px 0 8px; color: #33404d; }
-.doc p { margin: 9px 0; }
-.doc ul, .doc ol { margin: 9px 0; padding-left: 22px; }
-.doc li { margin: 4px 0; }
+.doc { padding: 24px 44px 90px; max-width: 860px; margin: 0 auto; font-size: 16px; line-height: 1.95; color: var(--ink); }
+.doc h2 { font-size: 20px; margin: 36px 0 16px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+.doc h3 { font-size: 16.5px; margin: 26px 0 10px; color: #33404d; }
+/* 中文正文：首行缩进两个字符 + 两端对齐 */
+.doc p { margin: 0 0 .62em; text-indent: 2em; text-align: justify; }
+.doc p.figcap { text-indent: 0; text-align: center; color: #5d5b57; font-size: 13.5px; line-height: 1.7; margin: 2px 0 1.2em; }
+.doc p.li { text-indent: 0; padding-left: 2.2em; text-align: left; }
+.doc p.imgline { text-indent: 0; text-align: center; margin: 1.4em 0 .3em; }
+.doc ul, .doc ol { margin: .5em 0 .8em; padding-left: 2.4em; }
+.doc li { margin: .3em 0; text-align: justify; }
 .doc table { border-collapse: collapse; margin: 14px auto; font-size: 13.5px; }
 .doc th, .doc td { border: 1px solid #dcd7cb; padding: 4px 10px; }
 .doc th { background: #f2efe7; }
-.doc img { max-width: 100%; height: auto; display: block; margin: 12px auto; }
+.doc table caption { caption-side: top; text-align: center; color: #666; font-size: 13.5px; padding-bottom: 6px; }
+.doc table th, .doc table td { vertical-align: top; }
+.doc table tr.grp td { text-align: left; font-weight: 600; background: #f4f1ea; }
+.doc img { max-width: 100%; height: auto; display: block; margin: 8px auto; }
 .doc blockquote { margin: 12px 0; padding: 6px 14px; border-left: 3px solid var(--accent-2); background: #f6f4ee; }
 .doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: #f2efe7; padding: 1px 4px; border-radius: 3px; }
 .doc .qa-callout { border: 1px solid #e6e6e6; border-left: 4px solid var(--accent-2); background: #fafbfc; padding: 8px 14px; margin: 16px 0; }

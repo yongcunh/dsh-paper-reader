@@ -59,54 +59,30 @@ def main():
     reader = PdfReader(str(pdf))
 
     items = []
+    emb_by_page = {}
 
-    # 1) 内嵌位图（按页面上的实际显示尺寸过滤 emoji / 小图标）
+    # 1) 内嵌位图（按像素尺寸过滤 emoji / 小图标）
+    #    pypdf 的 Image XObject 是 EncodedStreamObject，没有 .image 属性（旧写法在这里静默失败），
+    #    统一改用 page.images，由 pypdf 负责 DCT/Flate 等滤镜解码。
     if PIL:
-        from pypdf.generic import ContentStream
+        from io import BytesIO
         for i, page in enumerate(reader.pages):
-            # 收集每个图片 XObject 在页面上的显示尺寸（pt）
-            sizes = {}
             try:
-                cs = ContentStream(page.get_contents(), reader)
-                ctm = [1, 0, 0, 1, 0, 0]
-                stack = []
-                def mul(m, n):
-                    return [m[0]*n[0]+m[2]*n[1], m[1]*n[0]+m[3]*n[1],
-                            m[0]*n[2]+m[2]*n[3], m[1]*n[2]+m[3]*n[3],
-                            m[0]*n[4]+m[2]*n[5]+m[4], m[1]*n[4]+m[3]*n[5]+m[5]]
-                for operands, op in cs.operations:
-                    if op == b"q":
-                        stack.append(list(ctm))
-                    elif op == b"Q":
-                        if stack: ctm = stack.pop()
-                    elif op == b"cm":
-                        nums = [float(x) for x in operands]
-                        ctm = mul(nums, ctm)
-                    elif op == b"Do":
-                        name = str(operands[0])
-                        sizes[name] = (abs(ctm[0]), abs(ctm[3]))
+                imgs = list(page.images)
             except Exception:
-                sizes = {}
-
-            res = page.get("/Resources", {})
-            xobjs = res.get("/XObject", {}) if res else {}
-            for name, ref in xobjs.items():
+                continue
+            for j, im in enumerate(imgs):
                 try:
-                    obj = ref.get_object()
-                    if obj.get("/Subtype") != "/Image":
-                        continue
-                    w_pt, h_pt = sizes.get(str(name), (0, 0))
-                    if w_pt and (w_pt < 60 or h_pt < 60):
-                        continue  # 页面上的小图标 / emoji
-                    img = obj.image
-                    pil = PIL.open(BytesIO(img.data))
-                    if pil.width < 120 or pil.height < 80:
+                    pil = PIL.open(BytesIO(im.data))
+                    if pil.width < 160 or pil.height < 120:
                         continue
                     if pil.mode in ("P", "LA", "RGBA"):
                         pil = pil.convert("RGB")
-                    fname = f"fig-p{i+1}-{str(name).replace('/', '_')}.png"
+                    fname = f"fig-p{i+1}-{j+1}.png"
                     pil.save(figdir / fname)
-                    items.append({"file": fname, "page": i + 1, "caption": "", "kind": "embedded"})
+                    item = {"file": fname, "page": i + 1, "caption": "", "kind": "embedded", "num": ""}
+                    items.append(item)
+                    emb_by_page.setdefault(i + 1, []).append(item)
                 except Exception:
                     continue
 
@@ -156,8 +132,9 @@ def main():
             pages_needed[i + 1] = True
 
     if not captions:
-        (outdir / "figures.json").write_text("[]", encoding="utf-8")
-        print(json.dumps({"ok": True, "figures": 0}))
+        # 有内嵌图但没有图注：仍然要交差，否则上层会以为一张图都没有
+        (outdir / "figures.json").write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
+        print(json.dumps({"ok": True, "figures": len(items)}))
         return
 
     tmp = outdir / "_pages"
@@ -167,7 +144,9 @@ def main():
         render_pages(pdf, tmp, scale)
 
     if not PIL:
-        print(json.dumps({"ok": False, "error": "需要 Pillow 才能裁剪"}))
+        msg = {"ok": False, "error": "需要 Pillow 才能裁剪"}
+        (outdir / "figures.json").write_text(json.dumps(msg, ensure_ascii=False), encoding="utf-8")
+        print(json.dumps(msg, ensure_ascii=False))
         return
 
     for c in captions:
@@ -224,6 +203,15 @@ def main():
         name = f"fig-p{c['page']}-{c['num']}.png"
         crop.save(figdir / name)
         items.append({"file": name, "page": c["page"], "num": c.get("num", ""), "kind": c.get("kind", "figure"), "caption": c.get("text", "")})
+
+    # 内嵌图与同页的 Figure 图注按顺序配对，得到「图 N」编号（供正文按图注定位）
+    for page, its in emb_by_page.items():
+        caps = [c for c in captions if c["page"] == page and c["kind"] == "figure"]
+        if len(caps) != len(its):
+            continue
+        for it, c in zip(its, caps):
+            it["num"] = str(c.get("num", ""))
+            it["caption"] = str(c.get("text", ""))[:160]
 
     (outdir / "figures.json").write_text(json.dumps(items, ensure_ascii=False), encoding="utf-8")
     print(json.dumps({"ok": True, "figures": len(items)}))
