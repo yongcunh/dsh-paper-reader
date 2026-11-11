@@ -18,7 +18,8 @@ try:
 except Exception:
     PIL = None
 
-CAP = re.compile(r"^(Figure|Fig\.?|FIGURE|Table|TABLE)\s*([0-9]+[a-z]?)\s*[:.]?\s*(.*)$")
+# 编号后面必须是空白/冒号/句点或行尾，否则 "Figure 3identical…" 这种正文引用会被当成图注
+CAP = re.compile(r"^(Figure|Fig\.?|FIGURE|Table|TABLE)\s*([0-9]+[a-z]?)(?=[\s:.]|$)\s*[:.]?\s*(.*)$")
 HERE = Path(__file__).resolve().parent
 
 
@@ -107,8 +108,10 @@ def main():
         for idx, y in enumerate(ys):
             frags = sorted(lines[y])
             txt = "".join(t for _, t in frags)
-            matches = list(CAP.finditer(txt))
-            if not matches:
+            # 图注必须从行首开始（"Figure N:" / "Table N."）；
+            # 旧写法用 finditer，会把正文里的 "…see Figure 3…" 也当成图注
+            m = CAP.match(txt.lstrip())
+            if not m:
                 continue
             # 图注上方没有任何文本行时，图就是页面顶部到图注之间的整块
             if idx == 0:
@@ -126,9 +129,9 @@ def main():
                     bottom = max(20, y - 300)
                 if top - bottom < 60:
                     continue
-            label = matches[0].group(1).lower()
+            label = m.group(1).lower()
             kind = "table" if label.startswith("tab") else "figure"
-            captions.append({"page": i + 1, "y": y, "top": top, "bottom": bottom, "num": matches[0].group(2), "kind": kind, "split": "full", "w": page_w, "h": page_h, "text": txt[:160]})
+            captions.append({"page": i + 1, "y": y, "top": top, "bottom": bottom, "num": m.group(2), "kind": kind, "split": "full", "w": page_w, "h": page_h, "text": txt[:160]})
             pages_needed[i + 1] = True
 
     if not captions:
@@ -208,7 +211,11 @@ def main():
     for page, its in emb_by_page.items():
         caps = [c for c in captions if c["page"] == page and c["kind"] == "figure"]
         if len(caps) != len(its):
-            continue
+            # 单图多注（同页既有图注又有正文引用）：取文字最长、最像图注的一条
+            if len(its) == 1 and caps:
+                caps = [max(caps, key=lambda c: len(c.get("text", "")))]
+            else:
+                continue
         for it, c in zip(its, caps):
             it["num"] = str(c.get("num", ""))
             it["caption"] = str(c.get("text", ""))[:160]

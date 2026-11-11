@@ -206,6 +206,11 @@ assets/        阅读器前端（原生 JS + KaTeX），以 iframe 嵌入主区
 | macOS 硬化运行时下 Pillow 载入失败被静默吞掉，日志谎报「0 张」 | `from PIL import Image` 实测探测 + 日志告警；建议用带 pillow 的 `tools/.venv` |
 | 表格被拍平成「列名：值」段落 | 翻译提示词第 5 条要求重建 `<table>`；`app.css` 补 caption/分组行样式 |
 | 中文排版 | 首行缩进 2em、两端对齐、行高 1.95；图注/列表/图片行的 class 由 `writeZh` 自动补 |
+| 图注正则把正文里的「…depicted previously inFigure 3as…」当成图注 | 图注必须**行首对齐**，且编号后须是空白/标点 |
+| 图注无冒号（「图1 实现…」「Figure 1 Pillars…」）时定位不到 | 无分隔符时取「图 N …」开头且**最短**的一段当图注 |
+| 未采用的图（封面、图注裁切副本、`pdf_ingest` 同名副本）留在 `figures/` 被自检当成漏图补进正文 | 选图后统一清掉未采用文件 |
+| 自检兜底的 `used` 只统计本节，导致同一张图被补两次 | 改为跨全部章节统计 |
+| 日志版本号写死 `0.9.0` | `PLUGIN_VERSION` 改读 `package.json` |
 
 ## 免责声明
 
